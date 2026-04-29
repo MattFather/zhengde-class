@@ -63,7 +63,7 @@ def set_chinese_font(doc, font_name='標楷體'):
     doc.styles['Normal'].font.name = font_name
     doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
 
-def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, class_label, filtered_df, is_teacher_side=True):
+def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, issue_unit, class_label, filtered_df, is_teacher_side=True):
     # 1. 標題 (14pt)
     p_header = container_cell.paragraphs[0]
     p_header.paragraph_format.space_before = Pt(0)
@@ -73,16 +73,27 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, c
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 班級 (12pt)
-    p_class = container_cell.add_paragraph()
-    p_class.paragraph_format.space_before = Pt(0)
-    p_class.paragraph_format.space_after = Pt(0)
-    p_class.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run_class = p_class.add_run(f"班級：{class_label}")
-    run_class.bold = True
-    run_class.font.size = Pt(12) 
+    # 2. 發放單位與班級 (12pt) - 使用隱形表格確保同行左右對齊
+    header_table = container_cell.add_table(rows=1, cols=2)
+    header_table.autofit = False
+    
+    p_left = header_table.cell(0, 0).paragraphs[0]
+    p_left.paragraph_format.space_before = Pt(0)
+    p_left.paragraph_format.space_after = Pt(0)
+    p_left.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run_left = p_left.add_run(f"發放單位：{issue_unit}")
+    run_left.bold = True
+    run_left.font.size = Pt(12)
 
-    # 3. 建立表格
+    p_right = header_table.cell(0, 1).paragraphs[0]
+    p_right.paragraph_format.space_before = Pt(0)
+    p_right.paragraph_format.space_after = Pt(0)
+    p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run_right = p_right.add_run(f"班級：{class_label}")
+    run_right.bold = True
+    run_right.font.size = Pt(12) 
+
+    # 3. 建立主表格
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
@@ -229,7 +240,7 @@ def process_swap_logic(df):
         
     return pd.DataFrame(df_result)
 
-def create_docx(sch_year, sch_term, edited_df):
+def create_docx(sch_year, sch_term, issue_unit, edited_df):
     doc = Document()
     section = doc.sections[0]
     section.orient = WD_ORIENT.LANDSCAPE
@@ -265,10 +276,10 @@ def create_docx(sch_year, sch_term, edited_df):
         table = doc.add_table(rows=1, cols=2)
         table.width = Cm(28.7)
         b1 = all_blocks[i]
-        generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"])
+        generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, issue_unit, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"])
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 1), b2["suffix"], sch_year, sch_term, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
+            generate_timetable_block(table.cell(0, 1), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
         else:
             p = table.cell(0, 1).paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -279,10 +290,13 @@ def create_docx(sch_year, sch_term, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (支援 PDF)")
-c1, c2 = st.columns(2)
+st.markdown("### 📅 調/代 課單自動對調系統 (0429版)")
+
+# 增加發放單位輸入框
+c1, c2, c3 = st.columns(3)
 with c1: sch_year = st.text_input("學年度", value="114")
 with c2: sch_term = st.selectbox("學期", ["一", "二"], index=1)
+with c3: issue_unit = st.text_input("發放單位", value="教務處")
 
 st.info("""
 💡 **操作說明**：（點選表格「**左側**」方塊後按 `Delete` 鍵可刪除不需要的資料列）
@@ -293,9 +307,15 @@ st.info("""
 
 if 'res_data' not in st.session_state:
     st.session_state.res_data = pd.DataFrame([
-        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 11), "節次": "第 3 節", "科目": "生物", "老師": "生物老師", "調/代課": "調課"},
-        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "數學老師", "調/代課": "調課"}
+        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 11), "節次": "第 3 節", "科目": "生物", "老師": "王小帥", "調/代課": "調課"},
+        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "林小美", "調/代課": "調課"}
     ])
+
+# 預先定義好的科目清單 (最上方保留空白選項以便手動清除或暫不填寫)
+subject_list = [
+    "", "國文", "英文", "數學", "生物", "理化", "地科", "地理", "歷史", "公民", 
+    "體育", "健康", "視藝", "表藝", "音樂", "家政", "童軍", "輔導", "資訊", "生科", "本土語"
+]
 
 edited_df = st.data_editor(
     st.session_state.res_data,
@@ -305,7 +325,7 @@ edited_df = st.data_editor(
         "班級": st.column_config.TextColumn("班級"),
         "日期": st.column_config.DateColumn("日期", format="MM/DD"),
         "節次": st.column_config.SelectboxColumn("節次", options=[f"第 {i} 節" for i in range(1, 9)]),
-        "科目": st.column_config.TextColumn("科目"),
+        "科目": st.column_config.SelectboxColumn("科目", options=subject_list, help="雙擊格子後可下拉選擇，或直接用鍵盤打字快速搜尋"),
         "老師": st.column_config.TextColumn("老師"),
         "調/代課": st.column_config.SelectboxColumn("調/代課", options=["調課", "代課"]),
     },
@@ -316,7 +336,7 @@ edited_df = st.data_editor(
 )
 
 st.divider()
-data_docx = create_docx(sch_year, sch_term, edited_df)
+data_docx = create_docx(sch_year, sch_term, issue_unit, edited_df)
 
 if data_docx:
     col_word, col_pdf = st.columns(2)
