@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (0429版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (防裁切穩定版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -73,14 +73,14 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 發放單位與班級 (12pt)
+    # 2. 發放單位與班級 (12pt) - 適配 13.5cm 寬度的安全邊界定位點
     p_sub = container_cell.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 因應表格變寬(14.1cm)，將定位點調整為 13.7cm，確保完美對齊內部表格右側邊緣
+    # 定位點設為 13.2cm，完美對齊內部表格的最右側，絕對不會超出版界
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.7), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(13.2), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
@@ -238,7 +238,11 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section = doc.sections[0]
     section.orient = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
-    section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Cm(0.5)
+    
+    # 【關鍵修正】：擴大實體邊界，左/右各留 1.0 公分防印表機裁切
+    section.left_margin = section.right_margin = Cm(1.0)
+    section.top_margin = section.bottom_margin = Cm(0.5)
+    
     set_chinese_font(doc, '標楷體')
 
     df_raw = edited_df[edited_df["勾選列印資料"] == True].copy()
@@ -267,11 +271,12 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 修正：中間縫隙縮為 0.5cm，將剩餘空間分配給左右表格 (各 14.1cm)
+        # 【關鍵修正】：左側表(13.5cm) + 裁切縫(0.5cm) + 右側表(13.5cm) = 總寬度 27.5cm (遠低於 A4 的 29.7cm，絕對安全)
         table = doc.add_table(rows=1, cols=3)
         table.autofit = False
-        table.width = Cm(28.7)
-        col_widths = [Cm(14.1), Cm(0.5), Cm(14.1)]
+        table.width = Cm(27.5)
+        col_widths = [Cm(13.5), Cm(0.5), Cm(13.5)]
+        
         for j in range(3):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
@@ -293,7 +298,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (0429版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (防裁切穩定版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
