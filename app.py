@@ -96,9 +96,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.62 + 2.14*5 = 13.32)
+    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.22*6 = 13.32)
     inner_table.autofit = False 
-    inner_widths = [Cm(2.62), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14)]
+    inner_widths = [Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22)]
     for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
         for cell in inner_table.columns[j].cells:
@@ -130,7 +130,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
         cell_p.paragraph_format.space_after = Pt(0)
         run_num = cell_p.add_run(periods_list[r_idx])
         run_num.bold = True
-        run_num.font.size = Pt(12) 
+        run_num.font.size = Pt(9) 
         cell_p.add_run("\n")
         run_time = cell_p.add_run(times_list[r_idx])
         run_time.font.size = Pt(9) 
