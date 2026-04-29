@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.27版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.28版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -326,7 +326,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.27版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.28版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
@@ -394,11 +394,10 @@ edited_df = st.data_editor(
     column_order=("勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課")
 )
 
-# 同步更新 session_state 確保下載的是最新編輯的資料
-st.session_state.res_data = edited_df
+# 移除會導致打字消失的狀態迴圈 (st.session_state.res_data = edited_df 已刪除)
 
-# 進度下載與清空按鈕
-c_download, c_clear_btn, _ = st.columns([2, 2, 4])
+# 進度下載按鈕 (移除了清空按鈕)
+c_download, _ = st.columns([2, 8])
 with c_download:
     # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
     csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
@@ -410,15 +409,6 @@ with c_download:
         use_container_width=True,
         type="primary"
     )
-
-with c_clear_btn:
-    if st.button("🗑️ 清空所有表格", use_container_width=True):
-        empty_df = pd.DataFrame(columns=["勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課"])
-        st.session_state.res_data = empty_df
-        # 清除上傳紀錄，讓使用者可以再次上傳同一個檔案
-        if 'last_uploaded_id' in st.session_state:
-            del st.session_state['last_uploaded_id']
-        st.rerun()
 
 st.divider()
 
