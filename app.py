@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.23)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.25 等寬表格版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -96,7 +96,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.62 + 2.14*5 = 13.32)
+    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.22 * 6 = 13.32)
     inner_table.autofit = False 
     inner_widths = [Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22)]
     for j, width in enumerate(inner_widths):
@@ -150,24 +150,27 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) else ""
                 s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) else ""
                 
-                # 統一設定前三行字體為 9pt
+                # 統一設定前三行字體為 9pt，並加上粗體凸顯重點
                 p1 = cell.paragraphs[0]
                 p1.paragraph_format.space_after = Pt(0)
                 run_date_cell = p1.add_run(row_data["日期"].strftime("%m/%d"))
                 run_date_cell.font.size = Pt(9)
+                run_date_cell.bold = True # 加入粗體
                 
                 p2 = cell.add_paragraph()
                 p2.paragraph_format.space_after = Pt(0)
                 subj_display = f"{c_name} {s_name}".strip() if is_teacher_side and c_name else s_name
                 run_subj = p2.add_run(subj_display)
                 run_subj.font.size = Pt(9)
+                run_subj.bold = True # 加入粗體
                 
                 p3 = cell.add_paragraph()
                 p3.paragraph_format.space_after = Pt(0)
                 run_teacher = p3.add_run(str(row_data["老師"]))
                 run_teacher.font.size = Pt(9)
+                run_teacher.bold = True # 加入粗體
                 
-                # 第四行狀態提示改為 8pt 避免換行
+                # 第四行狀態提示改為 8pt 避免換行 (不加粗體以區分層次)
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
                 
@@ -324,7 +327,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.23)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.25 等寬表格版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
