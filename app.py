@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (精準自訂寬度版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (防擠壓完美貼合版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -78,7 +78,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 嚴格對齊外框 13.14 公分 (2.24 + 2.18*5)
+    # 【關鍵修正 1】：嚴格對齊內部課表的總寬度 13.14 公分
     tab_stops = p_sub.paragraph_format.tab_stops
     tab_stops.add_tab_stop(Cm(13.14), WD_TAB_ALIGNMENT.RIGHT)
     
@@ -90,9 +90,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用指定的精確寬度
+    # 【關鍵修正 2】：強制關閉自動排版，嚴格套用您的精確寬度
     inner_table.autofit = False 
-    # 第一欄 2.24cm，其餘五欄各 2.18cm
+    # 第一欄 2.24cm，其餘五欄各 2.18cm (總和 13.14cm)
     inner_widths = [Cm(2.24), Cm(2.18), Cm(2.18), Cm(2.18), Cm(2.18), Cm(2.18)]
     for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
@@ -190,7 +190,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     print_p.paragraph_format.space_after = Pt(0)
     print_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # 日期的右側也嚴格對齊 13.14 公分
+    # 【關鍵修正 3】：列印日期的右側也嚴格對齊 13.14 公分，保證上下完美切齊
     tab_stops_print = print_p.paragraph_format.tab_stops
     tab_stops_print.add_tab_stop(Cm(13.14), WD_TAB_ALIGNMENT.RIGHT)
     run_date = print_p.add_run(f"\t列印：{datetime.date.today().strftime('%Y/%m/%d')}")
@@ -252,8 +252,8 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.orient = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
     
-    # 完美置中邊界：左右各留 1.5 公分 (29.7 - 26.68 = 3.02)，徹底避免硬體裁切
-    section.left_margin = section.right_margin = Cm(1.5)
+    # 左右留出各 1.0 公分的紙張安全防線
+    section.left_margin = section.right_margin = Cm(1.0)
     section.top_margin = section.bottom_margin = Cm(0.5)
     
     set_chinese_font(doc, '標楷體')
@@ -284,11 +284,12 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 3 個實體欄位：左表 13.14cm + 中間縫隙 0.4cm + 右表 13.14cm = 總寬 26.68cm
+        # 【關鍵修正 4】：外部隱形格子設定為 13.6cm，大於內部的 13.14cm。
+        # 這樣就能完全吸收 Word 偷偷加上的內邊距，不再互相推擠出界！
         table = doc.add_table(rows=1, cols=3)
         table.autofit = False
         
-        col_widths = [Cm(13.14), Cm(0.4), Cm(13.14)]
+        col_widths = [Cm(13.6), Cm(0.5), Cm(13.6)]
         for j in range(3):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
@@ -310,7 +311,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (精準自訂寬度版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (防擠壓完美貼合版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
