@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.27 絕對隱私版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.27版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -326,7 +326,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.27 絕對隱私版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.27版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
@@ -349,7 +349,7 @@ if 'res_data' not in st.session_state:
     ])
 
 # ================= 隱私保護：本機進度存取區 =================
-st.markdown("#### 🔒 本機進度存取區 (資料不留雲端，保障隱私)")
+st.markdown("#### 🔒 載入舊資料")
 c_upload, c_empty = st.columns([1, 1])
 
 with c_upload:
@@ -403,7 +403,7 @@ with c_download:
     # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
     csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
-        label="💾 下載目前進度 (存至您的電腦)",
+        label="💾 下載目前進度",
         data=csv_bytes,
         file_name=f"調代課暫存_{datetime.date.today().strftime('%Y%m%d')}.csv",
         mime="text/csv",
@@ -412,7 +412,7 @@ with c_download:
     )
 
 with c_clear_btn:
-    if st.button("🗑️ 清空所有表格 (開新單)", use_container_width=True):
+    if st.button("🗑️ 清空所有表格", use_container_width=True):
         empty_df = pd.DataFrame(columns=["勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課"])
         st.session_state.res_data = empty_df
         # 清除上傳紀錄，讓使用者可以再次上傳同一個檔案
