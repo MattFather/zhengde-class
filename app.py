@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (表格鎖死完美對齊版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (終極強制定寬版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -78,22 +78,23 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 【關鍵修正】：將文字靠右定位點精準鎖在 13.8cm
+    # 嚴格對齊外框 13.2 公分
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.8), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(13.2), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
     run_sub.font.size = Pt(12) 
 
-    # 3. 建立主表格
+    # 3. 建立主表格 (內部課表)
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 【關鍵修正】：關閉自動縮放，並將所有欄位總寬度硬性鎖死在 13.8cm
+    # 【關鍵救援】：全面關閉自動排版，嚴格規定每個儲存格的公分尺寸
     inner_table.autofit = False 
-    col_widths = [Cm(2.8), Cm(2.2), Cm(2.2), Cm(2.2), Cm(2.2), Cm(2.2)] # 2.8 + 2.2*5 = 13.8
-    for j, width in enumerate(col_widths):
+    # 總寬 13.2cm 拆分：時間欄 2.7cm + 五天各 2.1cm
+    inner_widths = [Cm(2.7), Cm(2.1), Cm(2.1), Cm(2.1), Cm(2.1), Cm(2.1)]
+    for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
         for cell in inner_table.columns[j].cells:
             cell.width = width
@@ -189,9 +190,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     print_p.paragraph_format.space_after = Pt(0)
     print_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # 列印日期的靠右定位點也鎖定在 13.8cm，保持表格上下全切齊
+    # 日期的右側也嚴格對齊 13.2 公分
     tab_stops_print = print_p.paragraph_format.tab_stops
-    tab_stops_print.add_tab_stop(Cm(13.8), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops_print.add_tab_stop(Cm(13.2), WD_TAB_ALIGNMENT.RIGHT)
     run_date = print_p.add_run(f"\t列印：{datetime.date.today().strftime('%Y/%m/%d')}")
     run_date.font.size = Pt(10)
 
@@ -251,8 +252,9 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.orient = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
     
-    # 原始的邊界設定
-    section.left_margin = section.right_margin = section.top_margin = section.bottom_margin = Cm(0.5)
+    # 【安全邊界】：左右強迫留白 1.0 公分，避免任何老式印表機吃字
+    section.left_margin = section.right_margin = Cm(1.0)
+    section.top_margin = section.bottom_margin = Cm(0.5)
     
     set_chinese_font(doc, '標楷體')
 
@@ -282,13 +284,13 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 兩欄架構，總寬 28.7cm 平分 (各 14.35cm)
-        table = doc.add_table(rows=1, cols=2)
+        # 【實體護城河】：3 個實體欄位，中間強迫隔開 1.0cm，徹底阻斷兩邊表格互相擠壓
+        table = doc.add_table(rows=1, cols=3)
         table.autofit = False
-        table.width = Cm(28.7)
-        col_widths = [Cm(14.35), Cm(14.35)]
         
-        for j in range(2):
+        # 左 13.2cm + 中 1.0cm + 右 13.2cm = 總長 27.4cm (保證小於紙張可用寬度 27.7cm)
+        col_widths = [Cm(13.2), Cm(1.0), Cm(13.2)]
+        for j in range(3):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
                 cell.width = col_widths[j]
@@ -298,9 +300,9 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
         
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 1), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
+            generate_timetable_block(table.cell(0, 2), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
         else:
-            p = table.cell(0, 1).paragraphs[0]
+            p = table.cell(0, 2).paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德專用")
 
@@ -309,7 +311,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (表格鎖死完美對齊版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (終極強制定寬版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
