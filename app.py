@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.28版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.29)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -268,7 +268,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.page_width = Cm(29.7)
     section.page_height = Cm(21.0)
     
-    # 【關鍵校正】：左邊界 0.8cm、右邊界 0.5cm 來抵銷實體印表機誤差
+    # 左邊界 0.8cm、右邊界 0.5cm 來抵銷實體印表機誤差
     section.left_margin = Cm(0.8)
     section.right_margin = Cm(0.5)
     section.top_margin = section.bottom_margin = Cm(0.5)
@@ -326,7 +326,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.28版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.29)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
@@ -350,7 +350,7 @@ if 'res_data' not in st.session_state:
 
 # ================= 隱私保護：本機進度存取區 =================
 st.markdown("#### 🔒 載入舊資料")
-c_upload, c_empty = st.columns([1, 1])
+c_upload, _ = st.columns([1, 1])
 
 with c_upload:
     uploaded_file = st.file_uploader("📂 如果您有之前下載的進度檔 (.csv)，請在此上傳恢復：", type=["csv"])
@@ -358,10 +358,22 @@ with c_upload:
         # 確保只在剛上傳時讀取一次，避免干擾後續編輯
         if 'last_uploaded_id' not in st.session_state or st.session_state.last_uploaded_id != uploaded_file.file_id:
             try:
-                df_upload = pd.read_csv(uploaded_file)
-                df_upload["日期"] = pd.to_datetime(df_upload["日期"], errors='coerce').dt.date
-                df_upload["勾選列印資料"] = df_upload["勾選列印資料"].fillna(True).astype(bool)
-                df_upload.fillna("", inplace=True)
+                # 【關鍵防錯 1】：加入 keep_default_na=False 阻止 pandas 把空白解析為 float64，根除 Invalid value '' 報錯
+                df_upload = pd.read_csv(uploaded_file, keep_default_na=False)
+                
+                # 處理日期欄位，將 NaT 取代為 None 讓系統能正確讀取空白
+                if "日期" in df_upload.columns:
+                    df_upload["日期"] = pd.to_datetime(df_upload["日期"], errors='coerce').dt.date
+                    df_upload["日期"] = df_upload["日期"].apply(lambda x: x if pd.notnull(x) else None)
+                
+                # 處理布林值
+                if "勾選列印資料" in df_upload.columns:
+                    df_upload["勾選列印資料"] = df_upload["勾選列印資料"].astype(str).str.lower() != 'false'
+                
+                # 確保其他所有欄位都是乾淨字串
+                for col in df_upload.columns:
+                    if col not in ["日期", "勾選列印資料"]:
+                        df_upload[col] = df_upload[col].astype(str)
                 
                 st.session_state.res_data = df_upload
                 st.session_state.last_uploaded_id = uploaded_file.file_id # 記錄 ID 避免重複讀取
@@ -394,9 +406,9 @@ edited_df = st.data_editor(
     column_order=("勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課")
 )
 
-# 移除會導致打字消失的狀態迴圈 (st.session_state.res_data = edited_df 已刪除)
+# 【關鍵防錯 2】：移除了會導致狀態迴圈衝突（打字會消失）的同步程式碼，徹底解決吃字問題。
 
-# 進度下載按鈕 (移除了清空按鈕)
+# 進度下載按鈕 (移除了清空按鈕，避免誤觸)
 c_download, _ = st.columns([2, 8])
 with c_download:
     # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
