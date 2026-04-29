@@ -130,7 +130,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
         cell_p.paragraph_format.space_after = Pt(0)
         run_num = cell_p.add_run(periods_list[r_idx])
         run_num.bold = True
-        run_num.font.size = Pt(9) 
+        run_num.font.size = Pt(12) 
         cell_p.add_run("\n")
         run_time = cell_p.add_run(times_list[r_idx])
         run_time.font.size = Pt(9) 
