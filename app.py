@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (完美裁切虛線版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (不對稱邊界校正版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -260,8 +260,9 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.page_width = Cm(29.7)
     section.page_height = Cm(21.0)
     
-    # 邊界設定：左右 0.65 公分
-    section.left_margin = section.right_margin = Cm(0.65)
+    # 【關鍵校正】：左邊界 0.8cm、右邊界 0.5cm 來抵銷實體印表機誤差
+    section.left_margin = Cm(0.8)
+    section.right_margin = Cm(0.5)
     section.top_margin = section.bottom_margin = Cm(0.5)
     
     set_chinese_font(doc, '標楷體')
@@ -269,7 +270,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     df_raw = edited_df[edited_df["勾選列印資料"] == True].copy()
     if df_raw.empty: return None
     
-    df_raw["配দায়編號"] = df_raw["配對編號"].fillna("").astype(str).str.strip()
+    df_raw["配對編號"] = df_raw["配對編號"].fillna("").astype(str).str.strip()
     df_raw["班級"] = df_raw["班級"].fillna("").astype(str).str.strip()
     df_raw["老師"] = df_raw["老師"].fillna("").astype(str).str.strip()
     
@@ -292,7 +293,8 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 使用 4 欄位結構：左側 13.7 + 左縫隙 0.5 + 右縫隙 0.5 + 右側 13.7 = 總寬 28.4
+        # 維持 4 欄位結構：左側 13.7 + 左縫隙 0.5 + 右縫隙 0.5 + 右側 13.7 = 總寬 28.4
+        # (因為 0.8+0.5 = 1.3，29.7 - 1.3 = 28.4，總寬度剛好完美吻合！)
         table = doc.add_table(rows=1, cols=4)
         table.autofit = False
         
@@ -302,8 +304,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
             for cell in table.columns[j].cells:
                 cell.width = col_widths[j]
 
-        # 【魔法實踐】：在「左側縫隙 (第2欄)」的右邊緣畫上切割虛線
-        # 這個位置加上左邊界 0.65cm，精準落在 14.85cm (A4紙正中央)
+        # 在「左側縫隙 (第2欄)」的右邊緣畫上切割虛線
         set_cell_border(table.cell(0, 1), right={"sz": 6, "val": "dashed", "color": "808080"})
 
         b1 = all_blocks[i]
@@ -318,7 +319,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (完美裁切虛線版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (不對稱邊界校正版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
