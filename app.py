@@ -73,14 +73,14 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 發放單位與班級 (12pt) - 使用定位點(Tab)取代隱形表格，徹底消除空白行
+    # 2. 發放單位與班級 (12pt) - 修正右邊界避免字體被裁切
     p_sub = container_cell.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 設定右邊界定位點 (利用 Tab 鍵特性將文字推到右側)
+    # 將定位點縮短至 12.6cm，確保完美對齊內部表格右側邊緣
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.5), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(12.6), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
@@ -266,15 +266,24 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
 
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
-        table = doc.add_table(rows=1, cols=2)
-        table.width = Cm(28.7)
+        
+        # 改為 3 欄位設計：左單(13cm) + 縫隙(2.7cm) + 右單(13cm) = 28.7cm
+        table = doc.add_table(rows=1, cols=3)
+        table.autofit = False
+        col_widths = [Cm(13.0), Cm(2.7), Cm(13.0)]
+        for j in range(3):
+            table.columns[j].width = col_widths[j]
+            for cell in table.columns[j].cells:
+                cell.width = col_widths[j]
+
         b1 = all_blocks[i]
         generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, issue_unit, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"])
+        
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 1), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
+            generate_timetable_block(table.cell(0, 2), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
         else:
-            p = table.cell(0, 1).paragraphs[0]
+            p = table.cell(0, 2).paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德專用")
 
