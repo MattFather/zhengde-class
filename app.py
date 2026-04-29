@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (防裁切穩定版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (防裁切兩欄版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -73,14 +73,13 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 發放單位與班級 (12pt) - 適配 13.5cm 寬度的安全邊界定位點
+    # 2. 發放單位與班級 (12pt) - 退回兩欄版，欄寬約 13.75cm，定位點設在 13.5cm 完美貼合
     p_sub = container_cell.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 定位點設為 13.2cm，完美對齊內部表格的最右側，絕對不會超出版界
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.2), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(13.5), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
@@ -239,7 +238,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.orient = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
     
-    # 【關鍵修正】：擴大實體邊界，左/右各留 1.0 公分防印表機裁切
+    # 保留安全邊界：左/右各留 1.0 公分防印表機裁切
     section.left_margin = section.right_margin = Cm(1.0)
     section.top_margin = section.bottom_margin = Cm(0.5)
     
@@ -271,13 +270,13 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 【關鍵修正】：左側表(13.5cm) + 裁切縫(0.5cm) + 右側表(13.5cm) = 總寬度 27.5cm (遠低於 A4 的 29.7cm，絕對安全)
-        table = doc.add_table(rows=1, cols=3)
+        # 退回穩定的 2 欄架構，總寬 27.5cm，兩欄平分 (各 13.75cm)
+        table = doc.add_table(rows=1, cols=2)
         table.autofit = False
         table.width = Cm(27.5)
-        col_widths = [Cm(13.5), Cm(0.5), Cm(13.5)]
+        col_widths = [Cm(13.75), Cm(13.75)]
         
-        for j in range(3):
+        for j in range(2):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
                 cell.width = col_widths[j]
@@ -287,9 +286,9 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
         
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 2), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
+            generate_timetable_block(table.cell(0, 1), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
         else:
-            p = table.cell(0, 2).paragraphs[0]
+            p = table.cell(0, 1).paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德專用")
 
@@ -298,7 +297,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (防裁切穩定版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (防裁切兩欄版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
