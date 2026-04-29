@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.25版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.27 絕對隱私版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -96,7 +96,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.22 * 6 = 13.32)
+    # 關閉自動排版，嚴格套用 13.32cm 總寬度
     inner_table.autofit = False 
     inner_widths = [Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22)]
     for j, width in enumerate(inner_widths):
@@ -150,27 +150,27 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) else ""
                 s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) else ""
                 
-                # 統一設定前三行字體為 9pt，並加上粗體凸顯重點
+                # 統一設定前三行字體為 9pt，並加上粗體
                 p1 = cell.paragraphs[0]
                 p1.paragraph_format.space_after = Pt(0)
                 run_date_cell = p1.add_run(row_data["日期"].strftime("%m/%d"))
                 run_date_cell.font.size = Pt(9)
-                run_date_cell.bold = True # 加入粗體
+                run_date_cell.bold = True
                 
                 p2 = cell.add_paragraph()
                 p2.paragraph_format.space_after = Pt(0)
                 subj_display = f"{c_name} {s_name}".strip() if is_teacher_side and c_name else s_name
                 run_subj = p2.add_run(subj_display)
                 run_subj.font.size = Pt(9)
-                run_subj.bold = True # 加入粗體
+                run_subj.bold = True
                 
                 p3 = cell.add_paragraph()
                 p3.paragraph_format.space_after = Pt(0)
                 run_teacher = p3.add_run(str(row_data["老師"]))
                 run_teacher.font.size = Pt(9)
-                run_teacher.bold = True # 加入粗體
+                run_teacher.bold = True
                 
-                # 第四行狀態提示改為 8pt 避免換行 (不加粗體以區分層次)
+                # 第四行狀態提示改為 8pt 避免換行
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
                 
@@ -302,7 +302,6 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
         if i > 0: doc.add_page_break()
         
         # 維持 4 欄位結構：左側 13.7 + 左縫隙 0.5 + 右縫隙 0.5 + 右側 13.7 = 總寬 28.4
-        # (因為 0.8+0.5 = 1.3，29.7 - 1.3 = 28.4，總寬度剛好完美吻合！)
         table = doc.add_table(rows=1, cols=4)
         table.autofit = False
         
@@ -327,7 +326,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.25版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.27 絕對隱私版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
@@ -342,18 +341,41 @@ st.info("""
 3. **多角調**：類型選 `[調課]`，涉及的資料 `[配對編號]` 填入 **相同數字**。依輸入順序自動循環對調。
 """)
 
+# ================= 初始化預設資料 =================
 if 'res_data' not in st.session_state:
     st.session_state.res_data = pd.DataFrame([
         {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 11), "節次": "第 3 節", "科目": "生物", "老師": "王小帥", "調/代課": "調課"},
         {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "林小美", "調/代課": "調課"}
     ])
 
-# 預先定義好的科目清單 (最上方保留空白選項以便手動清除或暫不填寫)
+# ================= 隱私保護：本機進度存取區 =================
+st.markdown("#### 🔒 本機進度存取區 (資料不留雲端，保障隱私)")
+c_upload, c_empty = st.columns([1, 1])
+
+with c_upload:
+    uploaded_file = st.file_uploader("📂 如果您有之前下載的進度檔 (.csv)，請在此上傳恢復：", type=["csv"])
+    if uploaded_file is not None:
+        # 確保只在剛上傳時讀取一次，避免干擾後續編輯
+        if 'last_uploaded_id' not in st.session_state or st.session_state.last_uploaded_id != uploaded_file.file_id:
+            try:
+                df_upload = pd.read_csv(uploaded_file)
+                df_upload["日期"] = pd.to_datetime(df_upload["日期"], errors='coerce').dt.date
+                df_upload["勾選列印資料"] = df_upload["勾選列印資料"].fillna(True).astype(bool)
+                df_upload.fillna("", inplace=True)
+                
+                st.session_state.res_data = df_upload
+                st.session_state.last_uploaded_id = uploaded_file.file_id # 記錄 ID 避免重複讀取
+                st.rerun() # 重新整理畫面以顯示新資料
+            except Exception as e:
+                st.error(f"❌ 檔案讀取失敗: {e}")
+
+# 預先定義好的科目清單
 subject_list = [
     "", "國文", "英文", "數學", "生物", "理化", "地科", "地理", "歷史", "公民", 
     "體育", "健康", "視藝", "表藝", "音樂", "家政", "童軍", "輔導", "資訊", "生科", "本土語"
 ]
 
+# 編輯表格
 edited_df = st.data_editor(
     st.session_state.res_data,
     column_config={
@@ -372,7 +394,35 @@ edited_df = st.data_editor(
     column_order=("勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課")
 )
 
+# 同步更新 session_state 確保下載的是最新編輯的資料
+st.session_state.res_data = edited_df
+
+# 進度下載與清空按鈕
+c_download, c_clear_btn, _ = st.columns([2, 2, 4])
+with c_download:
+    # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
+    csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="💾 下載目前進度 (存至您的電腦)",
+        data=csv_bytes,
+        file_name=f"調代課暫存_{datetime.date.today().strftime('%Y%m%d')}.csv",
+        mime="text/csv",
+        use_container_width=True,
+        type="primary"
+    )
+
+with c_clear_btn:
+    if st.button("🗑️ 清空所有表格 (開新單)", use_container_width=True):
+        empty_df = pd.DataFrame(columns=["勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課"])
+        st.session_state.res_data = empty_df
+        # 清除上傳紀錄，讓使用者可以再次上傳同一個檔案
+        if 'last_uploaded_id' in st.session_state:
+            del st.session_state['last_uploaded_id']
+        st.rerun()
+
 st.divider()
+
+# ================= 檔案生成與下載 =================
 data_docx = create_docx(sch_year, sch_term, issue_unit, edited_df)
 
 if data_docx:
