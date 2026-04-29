@@ -150,18 +150,22 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) else ""
                 s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) else ""
                 
+                # 統一設定字體為 9pt
                 p1 = cell.paragraphs[0]
                 p1.paragraph_format.space_after = Pt(0)
-                p1.add_run(row_data["日期"].strftime("%m/%d"))
+                run_date_cell = p1.add_run(row_data["日期"].strftime("%m/%d"))
+                run_date_cell.font.size = Pt(9)
                 
                 p2 = cell.add_paragraph()
                 p2.paragraph_format.space_after = Pt(0)
                 subj_display = f"{c_name} {s_name}".strip() if is_teacher_side and c_name else s_name
-                p2.add_run(subj_display)
+                run_subj = p2.add_run(subj_display)
+                run_subj.font.size = Pt(9)
                 
                 p3 = cell.add_paragraph()
                 p3.paragraph_format.space_after = Pt(0)
-                p3.add_run(str(row_data["老師"]))
+                run_teacher = p3.add_run(str(row_data["老師"]))
+                run_teacher.font.size = Pt(9)
                 
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
@@ -172,7 +176,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 else:
                     if is_teacher_side and pd.notnull(row_data.get("原資訊")):
                         run_type = p4.add_run(str(row_data["原資訊"]))
-                        run_type.font.size = Pt(8) 
+                        run_type.font.size = Pt(9) 
                     else:
                         run_type = p4.add_run("[調課]")
                         run_type.font.size = Pt(9)
