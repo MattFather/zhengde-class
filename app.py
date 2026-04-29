@@ -42,22 +42,28 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (無縫貼齊版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (完美裁切虛線版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
+    # 更嚴謹的 XML 寫入方式，確保虛線能完美生成
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
+    tcBorders = tcPr.find(qn('w:tcBorders'))
+    if tcBorders is None:
+        tcBorders = OxmlElement('w:tcBorders')
+        tcPr.append(tcBorders)
+        
     for side in ["top", "left", "bottom", "right"]:
         if side in kwargs:
             tag = 'w:{}'.format(side)
-            element = tcPr.find(qn(tag))
+            element = tcBorders.find(qn(tag))
             if element is not None:
-                tcPr.remove(element)
+                tcBorders.remove(element)
             element = OxmlElement(tag)
             for key, val in kwargs[side].items():
                 element.set(qn('w:{}'.format(key)), str(val))
-            tcPr.append(element)
+            tcBorders.append(element)
 
 def set_chinese_font(doc, font_name='標楷體'):
     doc.styles['Normal'].font.name = font_name
@@ -78,9 +84,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 扣除儲存格左右預設邊距(0.19*2)，鎖定絕對安全寬度 13.47cm
+    # 扣除儲存格左右邊距後，內部可視安全寬度鎖定為 13.32cm
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.47), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(13.32), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
@@ -90,9 +96,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用 13.47cm 的總寬度，讓表格剛好填滿安全區
+    # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.62 + 2.14*5 = 13.32)
     inner_table.autofit = False 
-    inner_widths = [Cm(2.67), Cm(2.16), Cm(2.16), Cm(2.16), Cm(2.16), Cm(2.16)]
+    inner_widths = [Cm(2.62), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14)]
     for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
         for cell in inner_table.columns[j].cells:
@@ -179,8 +185,8 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
             for para in curr_cell.paragraphs:
                 para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 para.paragraph_format.line_spacing = 1.0
-            if r == 4: set_cell_border(curr_cell, bottom={"sz": 24, "val": "single", "color": "#000000"})
-            if r == 5: set_cell_border(curr_cell, top={"sz": 24, "val": "single", "color": "#000000"})
+            if r == 4: set_cell_border(curr_cell, bottom={"sz": 24, "val": "single", "color": "000000"})
+            if r == 5: set_cell_border(curr_cell, top={"sz": 24, "val": "single", "color": "000000"})
 
     # 7. 列印日期
     print_p = container_cell.paragraphs[-1] 
@@ -189,9 +195,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     print_p.paragraph_format.space_after = Pt(0)
     print_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # 列印日期的右側也精準鎖定在 13.47 公分
+    # 列印日期的右側也精準鎖定在 13.32cm，與內部課表齊平
     tab_stops_print = print_p.paragraph_format.tab_stops
-    tab_stops_print.add_tab_stop(Cm(13.47), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops_print.add_tab_stop(Cm(13.32), WD_TAB_ALIGNMENT.RIGHT)
     run_date = print_p.add_run(f"\t列印：{datetime.date.today().strftime('%Y/%m/%d')}")
     run_date.font.size = Pt(10)
 
@@ -254,8 +260,8 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section.page_width = Cm(29.7)
     section.page_height = Cm(21.0)
     
-    # 邊界設定：0.5 公分
-    section.left_margin = section.right_margin = Cm(0.5)
+    # 邊界設定：左右 0.65 公分
+    section.left_margin = section.right_margin = Cm(0.65)
     section.top_margin = section.bottom_margin = Cm(0.5)
     
     set_chinese_font(doc, '標楷體')
@@ -263,7 +269,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     df_raw = edited_df[edited_df["勾選列印資料"] == True].copy()
     if df_raw.empty: return None
     
-    df_raw["配對編號"] = df_raw["配對編號"].fillna("").astype(str).str.strip()
+    df_raw["配দায়編號"] = df_raw["配對編號"].fillna("").astype(str).str.strip()
     df_raw["班級"] = df_raw["班級"].fillna("").astype(str).str.strip()
     df_raw["老師"] = df_raw["老師"].fillna("").astype(str).str.strip()
     
@@ -286,33 +292,33 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 中間欄 1.0cm，剩餘平分各 13.85cm
-        table = doc.add_table(rows=1, cols=3)
+        # 使用 4 欄位結構：左側 13.7 + 左縫隙 0.5 + 右縫隙 0.5 + 右側 13.7 = 總寬 28.4
+        table = doc.add_table(rows=1, cols=4)
         table.autofit = False
         
-        col_widths = [Cm(13.85), Cm(1.0), Cm(13.85)]
-        for j in range(3):
+        col_widths = [Cm(13.7), Cm(0.5), Cm(0.5), Cm(13.7)]
+        for j in range(4):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
                 cell.width = col_widths[j]
+
+        # 【魔法實踐】：在「左側縫隙 (第2欄)」的右邊緣畫上切割虛線
+        # 這個位置加上左邊界 0.65cm，精準落在 14.85cm (A4紙正中央)
+        set_cell_border(table.cell(0, 1), right={"sz": 6, "val": "dashed", "color": "808080"})
 
         b1 = all_blocks[i]
         generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, issue_unit, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"])
         
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 2), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
-        else:
-            p = table.cell(0, 2).paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德專用")
+            generate_timetable_block(table.cell(0, 3), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
 
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (無縫貼齊版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (完美裁切虛線版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
