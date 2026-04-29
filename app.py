@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單自動對調系統 (雙格式版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (0429版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -254,11 +254,11 @@ def create_docx(sch_year, sch_term, edited_df):
     for t in teachers:
         df_t = df_processed[df_processed["老師"] == t]
         t_classes = sorted(list(set([c for c in df_t["班級"] if c != ""])))
-        all_blocks.append({"suffix": f"通知聯 - {t} 老師", "label": ", ".join(t_classes), "df": df_t, "is_teacher": True})
+        all_blocks.append({"suffix": f"教師通知聯 - {t} 老師", "label": ", ".join(t_classes), "df": df_t, "is_teacher": True})
 
     for c in classes:
         df_c = df_processed[df_processed["班級"] == c]
-        all_blocks.append({"suffix": "公告聯", "label": c, "df": df_c, "is_teacher": False})
+        all_blocks.append({"suffix": "班級公告聯", "label": c, "df": df_c, "is_teacher": False})
 
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
@@ -272,7 +272,7 @@ def create_docx(sch_year, sch_term, edited_df):
         else:
             p = table.cell(0, 1).paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德教務處專用")
+            p.add_run("\n\n\n\n\n\n(裁切線)\n----------\n正德專用")
 
     bio = io.BytesIO()
     doc.save(bio)
@@ -294,7 +294,7 @@ st.info("""
 if 'res_data' not in st.session_state:
     st.session_state.res_data = pd.DataFrame([
         {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 11), "節次": "第 3 節", "科目": "生物", "老師": "生物老師", "調/代課": "調課"},
-        {"勾選列印資料": True, "配對編號": "1", "班級": "718", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "數學老師", "調/代課": "調課"}
+        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "數學老師", "調/代課": "調課"}
     ])
 
 edited_df = st.data_editor(
