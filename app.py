@@ -3,7 +3,7 @@ import pandas as pd
 from docx import Document
 from docx.shared import Cm, Pt
 from docx.enum.section import WD_ORIENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -73,25 +73,18 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 發放單位與班級 (12pt) - 使用隱形表格確保同行左右對齊
-    header_table = container_cell.add_table(rows=1, cols=2)
-    header_table.autofit = False
+    # 2. 發放單位與班級 (12pt) - 使用定位點(Tab)取代隱形表格，徹底消除空白行
+    p_sub = container_cell.add_paragraph()
+    p_sub.paragraph_format.space_before = Pt(0)
+    p_sub.paragraph_format.space_after = Pt(0)
     
-    p_left = header_table.cell(0, 0).paragraphs[0]
-    p_left.paragraph_format.space_before = Pt(0)
-    p_left.paragraph_format.space_after = Pt(0)
-    p_left.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    run_left = p_left.add_run(f"發放單位：{issue_unit}")
-    run_left.bold = True
-    run_left.font.size = Pt(12)
-
-    p_right = header_table.cell(0, 1).paragraphs[0]
-    p_right.paragraph_format.space_before = Pt(0)
-    p_right.paragraph_format.space_after = Pt(0)
-    p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run_right = p_right.add_run(f"班級：{class_label}")
-    run_right.bold = True
-    run_right.font.size = Pt(12) 
+    # 設定右邊界定位點 (利用 Tab 鍵特性將文字推到右側)
+    tab_stops = p_sub.paragraph_format.tab_stops
+    tab_stops.add_tab_stop(Cm(13.5), WD_TAB_ALIGNMENT.RIGHT)
+    
+    run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
+    run_sub.bold = True
+    run_sub.font.size = Pt(12) 
 
     # 3. 建立主表格
     inner_table = container_cell.add_table(rows=9, cols=6)
@@ -296,7 +289,7 @@ st.markdown("### 📅 調/代 課單自動對調系統 (0429版)")
 c1, c2, c3 = st.columns(3)
 with c1: sch_year = st.text_input("學年度", value="114")
 with c2: sch_term = st.selectbox("學期", ["一", "二"], index=1)
-with c3: issue_unit = st.text_input("發放單位", value="教務處")
+with c3: issue_unit = st.text_input("發放單位", value="ＯＯＯ老師")
 
 st.info("""
 💡 **操作說明**：（點選表格「**左側**」方塊後按 `Delete` 鍵可刪除不需要的資料列）
