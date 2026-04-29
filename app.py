@@ -9,10 +9,40 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import io
 import datetime
+import subprocess
+import tempfile
+import os
+
+# ================= 雲端 PDF 轉換引擎 =================
+def docx_to_pdf(docx_bytes):
+    """在 Linux 伺服器背後呼叫 LibreOffice 進行轉換"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        docx_path = os.path.join(tmpdir, "temp.docx")
+        pdf_path = os.path.join(tmpdir, "temp.pdf")
+        
+        # 將記憶體中的 Word 寫入暫存硬碟
+        with open(docx_path, "wb") as f:
+            f.write(docx_bytes)
+            
+        # 下達 Linux 終端機指令
+        try:
+            subprocess.run([
+                "libreoffice", "--headless", "--convert-to", "pdf",
+                "--outdir", tmpdir, docx_path
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # 如果成功產生 PDF，讀取出來
+            if os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as f:
+                    return f.read()
+            return None
+        except Exception as e:
+            st.error(f"轉換引擎發生錯誤: {e}")
+            return None
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單自動對調系統")
+st.title("🏫 正德國中 - 調/代 課單自動對調系統 (雙格式版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -140,7 +170,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, c
             if r == 4: set_cell_border(curr_cell, bottom={"sz": 24, "val": "single", "color": "#000000"})
             if r == 5: set_cell_border(curr_cell, top={"sz": 24, "val": "single", "color": "#000000"})
 
-    # 7. 列印日期 (10pt, 物理定位消除空白)
+    # 7. 列印日期
     print_p = container_cell.paragraphs[-1] 
     print_p.text = ""
     print_p.paragraph_format.space_before = Pt(0) 
@@ -163,12 +193,10 @@ def process_swap_logic(df):
     df_result = []
     w_map = {0:"一", 1:"二", 2:"三", 3:"四", 4:"五", 5:"六", 6:"日"}
     
-    # 1. 處理代課
     subs = df[df["調/代課"] == "代課"].copy()
     for _, r in subs.iterrows():
         df_result.append(r)
         
-    # 2. 處理調課
     swaps = df[df["調/代課"] == "調課"].copy()
     pair_ids = [p for p in swaps["配對編號"].unique() if pd.notnull(p) and str(p).strip() != ""]
     
@@ -188,7 +216,6 @@ def process_swap_logic(df):
                 o_p = orig_periods[i]
                 w_day = w_map.get(o_d.weekday(), "")
                 new_row["原資訊"] = f"[原{o_d.strftime('%m/%d')}({w_day}){o_p}]"
-                
                 new_row["日期"] = shifted_dates[i]
                 new_row["節次"] = shifted_periods[i]
                 df_result.append(new_row)
@@ -196,7 +223,6 @@ def process_swap_logic(df):
             for _, r in rows.iterrows():
                 df_result.append(r)
     
-    # 3. 處理未填編號的調課
     no_id = swaps[swaps["配對編號"].isna() | (swaps["配對編號"] == "")]
     for _, r in no_id.iterrows():
         df_result.append(r)
@@ -221,18 +247,15 @@ def create_docx(sch_year, sch_term, edited_df):
     df_processed = process_swap_logic(df_raw)
 
     all_blocks = []
-    # A. 存查聯
     classes = sorted(list(set([c for c in df_processed["班級"] if c != ""])))
     all_blocks.append({"suffix": "存查聯", "label": ", ".join(classes), "df": df_processed, "is_teacher": True})
 
-    # B. 通知聯
     teachers = sorted(list(set([t for t in df_processed["老師"] if t != ""])))
     for t in teachers:
         df_t = df_processed[df_processed["老師"] == t]
         t_classes = sorted(list(set([c for c in df_t["班級"] if c != ""])))
         all_blocks.append({"suffix": f"通知聯 - {t} 老師", "label": ", ".join(t_classes), "df": df_t, "is_teacher": True})
 
-    # C. 公告聯
     for c in classes:
         df_c = df_processed[df_processed["班級"] == c]
         all_blocks.append({"suffix": "公告聯", "label": c, "df": df_c, "is_teacher": False})
@@ -256,23 +279,22 @@ def create_docx(sch_year, sch_term, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (完整版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (支援 PDF)")
 c1, c2 = st.columns(2)
 with c1: sch_year = st.text_input("學年度", value="114")
 with c2: sch_term = st.selectbox("學期", ["一", "二"], index=1)
 
-# ★ 修正後的精準說明區塊 ★
 st.info("""
 💡 **操作說明**：（點選表格「**左側**」方塊後按 `Delete` 鍵可刪除不需要的資料列）
-1. **代課**：類型選 `[代課]`，`[配對編號]` **留空**。系統會保留原上課時間，僅更換老師與科目。
-2. **互調**：類型選 `[調課]`，將要互調的兩筆原始資料 `[配對編號]` 填入 **相同數字**（如：1）。系統會自動互換兩者的時間，並在通知單上貼心標註原上課時間。
-3. **多角調**：類型選 `[調課]`，將涉及的所有原始資料 `[配對編號]` 填入 **相同數字**。系統會依輸入順序自動循環對調（第1列 ➔ 第2列位置，第2列 ➔ 第3列位置...最後一列 ➔ 第1列位置）。
+1. **代課**：類型選 `[代課]`，`[配對編號]` **留空**。保留原上課時間，僅更換老師與科目。
+2. **互調**：類型選 `[調課]`，兩筆原始資料 `[配對編號]` 填入 **相同數字**。系統互換時間並標註原上課時間。
+3. **多角調**：類型選 `[調課]`，涉及的資料 `[配對編號]` 填入 **相同數字**。依輸入順序自動循環對調。
 """)
 
 if 'res_data' not in st.session_state:
     st.session_state.res_data = pd.DataFrame([
         {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 11), "節次": "第 3 節", "科目": "生物", "老師": "生物老師", "調/代課": "調課"},
-        {"勾選列印資料": True, "配對編號": "1", "班級": "717", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "數學老師", "調/代課": "調課"}
+        {"勾選列印資料": True, "配對編號": "1", "班級": "718", "日期": datetime.date(2026, 5, 15), "節次": "第 6 節", "科目": "數學", "老師": "數學老師", "調/代課": "調課"}
     ])
 
 edited_df = st.data_editor(
@@ -294,13 +316,39 @@ edited_df = st.data_editor(
 )
 
 st.divider()
-data = create_docx(sch_year, sch_term, edited_df)
-if data:
-    st.download_button(
-        label="📥 下載【完整優化版】調代課單 (Word)",
-        data=data,
-        file_name=f"正德調代課單_完整版_{datetime.date.today().strftime('%Y%m%d')}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        type="primary",
-        use_container_width=True
-    )
+data_docx = create_docx(sch_year, sch_term, edited_df)
+
+if data_docx:
+    col_word, col_pdf = st.columns(2)
+    
+    with col_word:
+        st.markdown("#### 🔹 第一步：下載 Word (可修改)")
+        st.download_button(
+            label="📥 下載 Word 檔",
+            data=data_docx,
+            file_name=f"正德調代課單_{datetime.date.today().strftime('%Y%m%d')}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+        
+    with col_pdf:
+        st.markdown("#### 🔹 第二步：轉換成 PDF (手機專用)")
+        if st.button("🔄 呼叫雲端伺服器轉成 PDF", use_container_width=True):
+            with st.spinner("🚀 伺服器正在努力轉換中 (約需 5~10 秒，請耐心等候)..."):
+                pdf_data = docx_to_pdf(data_docx)
+                if pdf_data:
+                    st.session_state['ready_pdf'] = pdf_data
+                    st.success("✅ 轉換成功！請點擊下方按鈕下載。")
+                else:
+                    st.error("❌ 轉換失敗，伺服器過度繁忙或缺少套件。")
+                    
+        # 若有轉換好的 PDF，則顯示下載按鈕
+        if 'ready_pdf' in st.session_state:
+            st.download_button(
+                label="📥 點我下載生成的 PDF 檔",
+                data=st.session_state['ready_pdf'],
+                file_name=f"正德調代課單_{datetime.date.today().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
