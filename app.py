@@ -98,7 +98,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     
     # 關閉自動排版，嚴格套用 13.32cm 總寬度 (2.62 + 2.14*5 = 13.32)
     inner_table.autofit = False 
-    inner_widths = [Cm(2.62), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14), Cm(2.14)]
+    inner_widths = [Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22), Cm(2.22)]
     for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
         for cell in inner_table.columns[j].cells:
