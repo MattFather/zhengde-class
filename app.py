@@ -151,16 +151,16 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) else ""
                 
                 p1 = cell.paragraphs[0]
-                p1.paragraph_format.space_after = Pt(0)
+                p1.paragraph_format.space_after = Pt(9)
                 p1.add_run(row_data["日期"].strftime("%m/%d"))
                 
                 p2 = cell.add_paragraph()
-                p2.paragraph_format.space_after = Pt(0)
+                p2.paragraph_format.space_after = Pt(9)
                 subj_display = f"{c_name} {s_name}".strip() if is_teacher_side and c_name else s_name
                 p2.add_run(subj_display)
                 
                 p3 = cell.add_paragraph()
-                p3.paragraph_format.space_after = Pt(0)
+                p3.paragraph_format.space_after = Pt(9)
                 p3.add_run(str(row_data["老師"]))
                 
                 p4 = cell.add_paragraph()
