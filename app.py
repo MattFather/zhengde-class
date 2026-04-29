@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (不對稱邊界校正版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.22)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -319,7 +319,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (不對稱邊界校正版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (V.22)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
