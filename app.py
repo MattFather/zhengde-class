@@ -42,7 +42,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (A4紙張強制定寬版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (A4精確平分版)")
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -78,9 +78,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
     
-    # 嚴格對齊外框 13.14 公分 (2.24 + 2.18*5)
+    # 對齊平分後的 13.85 公分
     tab_stops = p_sub.paragraph_format.tab_stops
-    tab_stops.add_tab_stop(Cm(13.14), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops.add_tab_stop(Cm(13.85), WD_TAB_ALIGNMENT.RIGHT)
     
     run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
     run_sub.bold = True
@@ -90,10 +90,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     inner_table = container_cell.add_table(rows=9, cols=6)
     inner_table.style = 'Table Grid'
     
-    # 關閉自動排版，嚴格套用指定的精確寬度
+    # 關閉自動排版，嚴格套用 13.85cm 的總寬度
     inner_table.autofit = False 
-    # 第一欄 2.24cm，其餘五欄各 2.18cm
-    inner_widths = [Cm(2.24), Cm(2.18), Cm(2.18), Cm(2.18), Cm(2.18), Cm(2.18)]
+    inner_widths = [Cm(2.85), Cm(2.2), Cm(2.2), Cm(2.2), Cm(2.2), Cm(2.2)]
     for j, width in enumerate(inner_widths):
         inner_table.columns[j].width = width
         for cell in inner_table.columns[j].cells:
@@ -190,9 +189,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     print_p.paragraph_format.space_after = Pt(0)
     print_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    # 日期的右側也嚴格對齊 13.14 公分
+    # 鎖定 13.85 公分
     tab_stops_print = print_p.paragraph_format.tab_stops
-    tab_stops_print.add_tab_stop(Cm(13.14), WD_TAB_ALIGNMENT.RIGHT)
+    tab_stops_print.add_tab_stop(Cm(13.85), WD_TAB_ALIGNMENT.RIGHT)
     run_date = print_p.add_run(f"\t列印：{datetime.date.today().strftime('%Y/%m/%d')}")
     run_date.font.size = Pt(10)
 
@@ -251,12 +250,12 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     section = doc.sections[0]
     section.orient = WD_ORIENT.LANDSCAPE
     
-    # 【超級關鍵修正】：強制把紙張設定為台灣標準的 A4 尺寸 (橫向寬度 29.7cm，高度 21.0cm)
+    # 強制設定 A4 尺寸
     section.page_width = Cm(29.7)
     section.page_height = Cm(21.0)
     
-    # 有了 29.7 公分的真實寬度，左右留出 1.0 公分安全邊界綽綽有餘！
-    section.left_margin = section.right_margin = Cm(1.0)
+    # 邊界設定：0.5 公分
+    section.left_margin = section.right_margin = Cm(0.5)
     section.top_margin = section.bottom_margin = Cm(0.5)
     
     set_chinese_font(doc, '標楷體')
@@ -287,11 +286,11 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
         
-        # 3 個實體欄位：左表 13.14cm + 中間縫隙 0.4cm + 右表 13.14cm = 總寬 26.68cm
+        # 中間欄 1.0cm，剩餘平分各 13.85cm
         table = doc.add_table(rows=1, cols=3)
         table.autofit = False
         
-        col_widths = [Cm(13.14), Cm(0.4), Cm(13.14)]
+        col_widths = [Cm(13.85), Cm(1.0), Cm(13.85)]
         for j in range(3):
             table.columns[j].width = col_widths[j]
             for cell in table.columns[j].cells:
@@ -313,7 +312,7 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (A4紙張強制定寬版)")
+st.markdown("### 📅 調/代 課單自動對調系統 (A4精確平分版)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
