@@ -510,7 +510,7 @@ c_download, _ = st.columns([2, 8])
 with c_download:
     csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
-        label="💾 下載目前進度",
+        label="💾 下載暫存檔",
         data=csv_bytes,
         file_name=f"調代課暫存_{datetime.date.today().strftime('%Y%m%d')}.csv",
         mime="text/csv",
