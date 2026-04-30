@@ -43,23 +43,34 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.30)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.32版)")
 
-# 👇👇👇 加入這段「快捷鍵刺客」魔法 👇👇👇
+# 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
     """
     <script>
-    // 抓取整個 Streamlit 網頁的底層框架
+    // 找出 Streamlit 最底層的 iframe 和 document
     const doc = window.parent.document;
     
-    // 在最外層攔截鍵盤按下的動作
-    doc.addEventListener('keydown', function(e) {
-        // 如果按下的是 c 或 C (不論有沒有按著 Ctrl)
-        if (e.key === 'c' || e.key === 'C') {
-            // 直接把這個按鍵動作殺掉，不讓 Streamlit 收到
-            e.stopPropagation();
+    // 使用 capture: true 強制在事件剛發生時就攔截
+    doc.addEventListener('keydown', function(event) {
+        // 檢查按下的鍵是不是 c 或 C
+        if (event.key.toLowerCase() === 'c') {
+            
+            // 檢查目前滑鼠的焦點 (focus) 是不是在輸入框或文字區裡面
+            // 如果焦點在 input 裡面，就放行，讓您可以正常打字輸入 c
+            const activeElement = doc.activeElement;
+            const isInput = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+            
+            if (!isInput) {
+                // 如果焦點不在輸入框，代表您只是在網頁亂點或想複製文字
+                // 毫不留情地把這個按鍵事件「徹底殺死」！
+                event.preventDefault();    // 阻止預設行為 (例如跳出快取視窗)
+                event.stopPropagation();   // 阻止事件繼續往上傳遞
+                event.stopImmediatePropagation(); // 殺到底，連同層級的其他監聽器也叫不醒
+            }
         }
-    }, true); // true 代表在「捕捉階段」就優先攔截
+    }, true); 
     </script>
     """,
     height=0,
@@ -158,8 +169,10 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
         run_time = cell_p.add_run(times_list[r_idx])
         run_time.font.size = Pt(9) 
 
-    # 5. 填入課程資料
+    # 5. 填入課程資料 (採用「同格子分組聚合」邏輯，確保 X 標記與實體課程不衝突)
     day_map = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5} 
+    cell_records = {}
+    
     for _, row_data in filtered_df.iterrows():
         if pd.notnull(row_data["日期"]) and row_data["日期"] != "":
             d_idx = day_map.get(pd.to_datetime(row_data["日期"]).weekday())
@@ -167,19 +180,36 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 p_idx = int(str(row_data["節次"]).split()[1])
             except: continue
             if d_idx and p_idx:
-                cell = inner_table.rows[p_idx].cells[d_idx]
-                cell.text = "" 
+                k = (p_idx, d_idx)
+                if k not in cell_records: cell_records[k] = []
+                cell_records[k].append(row_data)
                 
+    for (p_idx, d_idx), records in cell_records.items():
+        cell = inner_table.rows[p_idx].cells[d_idx]
+        cell.text = "" 
+        
+        actual_classes = [r for r in records if str(r.get("調/代課")) != "空堂X"]
+        x_marks = [r for r in records if str(r.get("調/代課")) == "空堂X"]
+        
+        # 如果這個格子有被排入真實課程，則優先顯示課程 (隱藏空堂X)
+        if actual_classes:
+            for idx, row_data in enumerate(actual_classes):
+                if idx == 0:
+                    p1 = cell.paragraphs[0]
+                else:
+                    cell.add_paragraph() # 若同格子有多堂課，空一行隔開
+                    p1 = cell.add_paragraph()
+                    
                 c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) and row_data["班級"] != "" else ""
                 s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) and row_data["科目"] != "" else ""
                 
-                # 統一設定前三行字體為 9pt，並加上粗體
-                p1 = cell.paragraphs[0]
+                # 第一行：日期
                 p1.paragraph_format.space_after = Pt(0)
                 run_date_cell = p1.add_run(pd.to_datetime(row_data["日期"]).strftime("%m/%d"))
                 run_date_cell.font.size = Pt(9)
                 run_date_cell.bold = True
                 
+                # 第二行：班級與科目
                 p2 = cell.add_paragraph()
                 p2.paragraph_format.space_after = Pt(0)
                 subj_display = f"{c_name} {s_name}".strip() if is_teacher_side and c_name else s_name
@@ -187,28 +217,72 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 run_subj.font.size = Pt(9)
                 run_subj.bold = True
                 
+                # 第三行：老師
                 p3 = cell.add_paragraph()
                 p3.paragraph_format.space_after = Pt(0)
                 run_teacher = p3.add_run(str(row_data["老師"]))
                 run_teacher.font.size = Pt(9)
                 run_teacher.bold = True
                 
-                # 第四行狀態提示改為 8pt 避免換行
+                # 第四行：狀態/群組/原資訊
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
+                
+                pair_id = str(row_data.get("配對編號", "")).strip()
+                group_str = f"【組{pair_id}】" if pair_id else ""
                 
                 if str(row_data["調/代課"]) == "代課":
                     run_type = p4.add_run("[代課]")
                     run_type.font.size = Pt(8)
                 else:
-                    if is_teacher_side and pd.notnull(row_data.get("原資訊")) and row_data.get("原資訊") != "":
-                        run_type = p4.add_run(str(row_data["原資訊"]))
-                        run_type.font.size = Pt(8) 
+                    orig_info = str(row_data.get("原資訊", "")) if pd.notnull(row_data.get("原資訊")) else ""
+                    
+                    if title_suffix == "存查聯":
+                        # 存查聯：加上【組號】方便行政對照
+                        if group_str:
+                            run_grp = p4.add_run(group_str)
+                            run_grp.font.size = Pt(8)
+                            run_grp.bold = True
+                            if orig_info:
+                                p5 = cell.add_paragraph()
+                                p5.paragraph_format.space_after = Pt(0)
+                                run_orig = p5.add_run(orig_info)
+                                run_orig.font.size = Pt(8)
+                        else:
+                            run_type = p4.add_run(orig_info if orig_info else "[調課]")
+                            run_type.font.size = Pt(8)
                     else:
-                        run_type = p4.add_run("[調課]")
-                        run_type.font.size = Pt(8)
+                        # 教師通知聯 / 班級公告聯：正常顯示
+                        if is_teacher_side and orig_info:
+                            run_type = p4.add_run(orig_info)
+                            run_type.font.size = Pt(8) 
+                        else:
+                            run_type = p4.add_run("[調課]")
+                            run_type.font.size = Pt(8)
+                            
+        # 若沒有真實課程，且這是一堂被調走的空堂，在教師通知聯中畫上 X
+        elif x_marks and "教師通知聯" in title_suffix:
+            row_data = x_marks[0]
+            
+            p1 = cell.paragraphs[0]
+            p1.paragraph_format.space_after = Pt(0)
+            run_date_cell = p1.add_run(pd.to_datetime(row_data["日期"]).strftime("%m/%d"))
+            run_date_cell.font.size = Pt(9)
+            run_date_cell.bold = True
+            
+            p2 = cell.add_paragraph()
+            p2.paragraph_format.space_after = Pt(0)
+            run_x = p2.add_run("✖")
+            run_x.font.size = Pt(14)
+            run_x.bold = True
+            
+            p3 = cell.add_paragraph()
+            p3.paragraph_format.space_after = Pt(0)
+            run_text = p3.add_run("(已調走)")
+            run_text.font.size = Pt(8)
+            run_text.bold = True
 
-    # 6. 表格格式
+    # 6. 表格格式 (所有段落自動置中對齊)
     for r in range(9):
         for c in range(6):
             curr_cell = inner_table.rows[r].cells[c]
@@ -285,6 +359,15 @@ def process_swap_logic(df):
                 new_row["日期"] = shifted_dates[i]
                 new_row["節次"] = shifted_periods[i]
                 df_result.append(new_row)
+                
+                # ----- 產生空堂 X 紀錄，專門給教師通知聯使用 -----
+                x_row = rows.iloc[i].copy()
+                x_row["日期"] = o_d
+                x_row["節次"] = o_p
+                x_row["調/代課"] = "空堂X"
+                x_row["原資訊"] = ""
+                df_result.append(x_row)
+                
         else:
             for _, r in rows.iterrows():
                 df_result.append(r)
@@ -393,8 +476,7 @@ with c_upload:
         # 確保只在剛上傳時讀取一次，避免干擾後續編輯
         if 'last_uploaded_id' not in st.session_state or st.session_state.last_uploaded_id != uploaded_file.file_id:
             try:
-                # 【關鍵防錯 1】：加入 dtype=str 確保一開始全部當字串讀取，不讓 pandas 亂猜！
-                # 解決 Invalid value '' for dtype 'float64'
+                # 加入 dtype=str 確保一開始全部當字串讀取
                 df_upload = pd.read_csv(uploaded_file, keep_default_na=False, dtype=str)
                 
                 # 處理日期欄位，將字串轉回 date，有錯誤就變成 NaT 再轉 None
