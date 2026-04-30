@@ -44,7 +44,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.37版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.38 終極版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -527,7 +527,7 @@ if data_docx:
     col_word, col_pdf = st.columns(2)
     
     with col_word:
-        st.markdown("#### 🔹 第一步：下載 Word")
+        st.markdown("#### 🔹 選項一：下載可編輯 Word 檔 (電腦適用)")
         st.download_button(
             label="📥 下載 Word 檔",
             data=data_docx,
@@ -537,7 +537,7 @@ if data_docx:
         )
         
     with col_pdf:
-        st.markdown("#### 🔹 第二步：一鍵轉換與下載 PDF")
+        st.markdown("#### 🔹 選項二：一鍵轉換與下載 PDF (手機專用)")
         
         # 使用 primary 顏色讓按鈕更明顯
         if st.button("🔄 轉換並自動下載 PDF", use_container_width=True, type="primary"):
