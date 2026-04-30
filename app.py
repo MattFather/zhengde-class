@@ -44,7 +44,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.39版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.40 版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -102,7 +102,7 @@ def set_chinese_font(doc, font_name='標楷體'):
     doc.styles['Normal'].font.name = font_name
     doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
 
-def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, issue_unit, class_label, filtered_df, is_teacher_side=True):
+def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, issue_unit, class_label, filtered_df, is_teacher_side=True, teacher_name=""):
     # 1. 標題 (14pt)
     p_header = container_cell.paragraphs[0]
     p_header.paragraph_format.space_before = Pt(0)
@@ -112,7 +112,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     run_h.bold = True
     run_h.font.size = Pt(14) 
 
-    # 2. 發放單位與班級 (12pt)
+    # 2. 教師名稱與班級 (12pt)
     p_sub = container_cell.add_paragraph()
     p_sub.paragraph_format.space_before = Pt(0)
     p_sub.paragraph_format.space_after = Pt(0)
@@ -121,7 +121,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     tab_stops = p_sub.paragraph_format.tab_stops
     tab_stops.add_tab_stop(Cm(13.32), WD_TAB_ALIGNMENT.RIGHT)
     
-    run_sub = p_sub.add_run(f"發放單位：{issue_unit}\t班級：{class_label}")
+    # 只有傳入 teacher_name 時才顯示左側的「教師：ＯＯＯ老師」
+    left_text = f"教師：{teacher_name}" if teacher_name else ""
+    run_sub = p_sub.add_run(f"{left_text}\t班級：{class_label}")
     run_sub.bold = True
     run_sub.font.size = Pt(12) 
 
@@ -278,16 +280,22 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
             if r == 4: set_cell_border(curr_cell, bottom={"sz": 24, "val": "single", "color": "000000"})
             if r == 5: set_cell_border(curr_cell, top={"sz": 24, "val": "single", "color": "000000"})
 
-    # 7. 列印日期
+    # 7. 發放單位與列印日期
     print_p = container_cell.paragraphs[-1] 
     print_p.text = ""
     print_p.paragraph_format.space_before = Pt(0) 
     print_p.paragraph_format.space_after = Pt(0)
-    print_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    print_p.alignment = WD_ALIGN_PARAGRAPH.LEFT  # 靠左對齊，用 tab 推開右邊
     
-    # 列印日期的右側也精準鎖定在 13.32cm，與內部課表齊平
+    # 鎖定右側的 tab_stop 在 13.32cm
     tab_stops_print = print_p.paragraph_format.tab_stops
     tab_stops_print.add_tab_stop(Cm(13.32), WD_TAB_ALIGNMENT.RIGHT)
+    
+    # 左側：發放單位 (10pt, 不加粗)
+    run_issue = print_p.add_run(f"發放單位：{issue_unit}")
+    run_issue.font.size = Pt(10)
+    
+    # 右側：列印日期 (10pt, 不加粗)
     run_date = print_p.add_run(f"\t列印：{datetime.date.today().strftime('%Y/%m/%d')}")
     run_date.font.size = Pt(10)
 
@@ -391,17 +399,17 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
 
     all_blocks = []
     classes = sorted(list(set([c for c in df_processed["班級"] if c != ""])))
-    all_blocks.append({"suffix": "存查聯", "label": ", ".join(classes), "df": df_processed, "is_teacher": True})
+    all_blocks.append({"suffix": "存查聯", "label": ", ".join(classes), "df": df_processed, "is_teacher": True, "teacher_name": ""})
 
     teachers = sorted(list(set([t for t in df_processed["老師"] if t != ""])))
     for t in teachers:
         df_t = df_processed[df_processed["老師"] == t]
         t_classes = sorted(list(set([c for c in df_t["班級"] if c != ""])))
-        all_blocks.append({"suffix": f"教師通知聯 - {t} 老師", "label": ", ".join(t_classes), "df": df_t, "is_teacher": True})
+        all_blocks.append({"suffix": "教師通知聯", "label": ", ".join(t_classes), "df": df_t, "is_teacher": True, "teacher_name": f"{t}老師"})
 
     for c in classes:
         df_c = df_processed[df_processed["班級"] == c]
-        all_blocks.append({"suffix": "班級公告聯", "label": c, "df": df_c, "is_teacher": False})
+        all_blocks.append({"suffix": "班級公告聯", "label": c, "df": df_c, "is_teacher": False, "teacher_name": ""})
 
     for i in range(0, len(all_blocks), 2):
         if i > 0: doc.add_page_break()
@@ -420,11 +428,11 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
         set_cell_border(table.cell(0, 1), right={"sz": 6, "val": "dashed", "color": "808080"})
 
         b1 = all_blocks[i]
-        generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, issue_unit, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"])
+        generate_timetable_block(table.cell(0, 0), b1["suffix"], sch_year, sch_term, issue_unit, b1["label"], b1["df"], is_teacher_side=b1["is_teacher"], teacher_name=b1["teacher_name"])
         
         if i + 1 < len(all_blocks):
             b2 = all_blocks[i+1]
-            generate_timetable_block(table.cell(0, 3), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"])
+            generate_timetable_block(table.cell(0, 3), b2["suffix"], sch_year, sch_term, issue_unit, b2["label"], b2["df"], is_teacher_side=b2["is_teacher"], teacher_name=b2["teacher_name"])
 
     bio = io.BytesIO()
     doc.save(bio)
@@ -510,7 +518,7 @@ c_download, _ = st.columns([2, 8])
 with c_download:
     csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
-        label="💾 下載暫存檔",
+        label="💾 下載目前進度",
         data=csv_bytes,
         file_name=f"調代課暫存_{datetime.date.today().strftime('%Y%m%d')}.csv",
         mime="text/csv",
@@ -527,7 +535,7 @@ if data_docx:
     col_word, col_pdf = st.columns(2)
     
     with col_word:
-        st.markdown("#### 🔹 選項一：下載Word檔(可編輯)")
+        st.markdown("#### 🔹 選項一：下載可編輯 Word 檔 (電腦適用)")
         st.download_button(
             label="📥 下載 Word 檔",
             data=data_docx,
@@ -537,7 +545,7 @@ if data_docx:
         )
         
     with col_pdf:
-        st.markdown("#### 🔹 選項二：下載PDF檔(手機建議)")
+        st.markdown("#### 🔹 選項二：一鍵轉換與下載 PDF (手機專用)")
         
         # 使用 primary 顏色讓按鈕更明顯
         if st.button("🔄 轉換並自動下載 PDF", use_container_width=True, type="primary"):
