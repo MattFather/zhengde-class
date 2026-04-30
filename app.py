@@ -43,7 +43,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.34 版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.35版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -222,7 +222,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 run_teacher.font.size = Pt(9)
                 run_teacher.bold = True
                 
-                # 第四行：極簡狀態提示 [代課] 或 [配對編號]
+                # 第四行：狀態提示
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
                 
@@ -232,11 +232,12 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                     run_type = p4.add_run("[代課]")
                     run_type.font.size = Pt(8)
                 else:
-                    # 只要有配對編號，就顯示 [1]、[2] 來取代落長的文字
-                    if pair_id:
+                    # 只有行政存查聯會顯示配對編號 [1], [2]
+                    if title_suffix == "存查聯" and pair_id:
                         run_type = p4.add_run(f"[{pair_id}]")
-                        run_type.font.size = Pt(8) # 統一改為 8pt 且不加粗體
+                        run_type.font.size = Pt(8)
                     else:
+                        # 老師通知單或學生公告聯，一律只顯示 [調課]
                         run_type = p4.add_run("[調課]")
                         run_type.font.size = Pt(8)
                             
