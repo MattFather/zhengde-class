@@ -44,7 +44,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.38 終極版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.39 突破沙盒版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -545,24 +545,39 @@ if data_docx:
                 pdf_data = docx_to_pdf(data_docx)
                 if pdf_data:
                     # 轉換成功後顯示成功訊息
-                    st.success("✅ 轉換成功！檔案已自動下載至您的裝置中。")
+                    st.success("✅ 轉換成功！檔案已自動下載。若無反應請點下方按鈕：")
                     
-                    # 👇👇👇 核心魔法：將 PDF 轉成 Base64 並用 JavaScript 自動觸發下載 👇👇👇
+                    # 👇👇👇 核心魔法：突破沙盒限制的強制下載腳本 👇👇👇
                     b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
                     pdf_filename = f"正德調代課單_{datetime.date.today().strftime('%Y%m%d')}.pdf"
                     
                     auto_download_js = f"""
                         <script>
-                            var link = document.createElement('a');
-                            link.href = 'data:application/pdf;base64,{b64_pdf}';
-                            link.download = '{pdf_filename}';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            setTimeout(function() {{
+                                // 抓取最外層的主視窗 (逃離 iframe 沙盒)
+                                const parentDoc = window.parent.document;
+                                const link = parentDoc.createElement('a');
+                                
+                                // 使用 octet-stream 強制瀏覽器執行「下載」行為，而非預覽
+                                link.href = 'data:application/octet-stream;base64,{b64_pdf}';
+                                link.download = '{pdf_filename}';
+                                
+                                parentDoc.body.appendChild(link);
+                                link.click();
+                                parentDoc.body.removeChild(link);
+                            }}, 300); // 稍微延遲 0.3 秒，確保畫面渲染完畢再觸發
                         </script>
                     """
                     components.html(auto_download_js, height=0, width=0)
                     # 👆👆👆 魔法結束 👆👆👆
                     
+                    # 備用安全網：如果瀏覽器極度嚴格擋住了腳本，使用者依然可以點這個按鈕
+                    st.download_button(
+                        label="📥 點我手動下載 PDF 檔",
+                        data=pdf_data,
+                        file_name=pdf_filename,
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
                 else:
                     st.error("❌ 轉換失敗，伺服器過度繁忙或缺少套件。")
