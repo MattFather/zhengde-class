@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 import os
 import streamlit.components.v1 as components
+import base64  # 新增 base64 模組來實現一鍵下載魔法
 
 # ================= 雲端 PDF 轉換引擎 =================
 def docx_to_pdf(docx_bytes):
@@ -43,7 +44,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.36 動向追蹤版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.37版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -536,23 +537,32 @@ if data_docx:
         )
         
     with col_pdf:
-        st.markdown("#### 🔹 第二步：下載 PDF (手機建議)")
-        if st.button("🔄 呼叫雲端伺服器轉成 PDF", use_container_width=True):
+        st.markdown("#### 🔹 第二步：一鍵轉換與下載 PDF")
+        
+        # 使用 primary 顏色讓按鈕更明顯
+        if st.button("🔄 轉換並自動下載 PDF", use_container_width=True, type="primary"):
             with st.spinner("🚀 伺服器正在努力轉換中 (約需 5~10 秒，請耐心等候)..."):
                 pdf_data = docx_to_pdf(data_docx)
                 if pdf_data:
-                    st.session_state['ready_pdf'] = pdf_data
-                    st.success("✅ 轉換成功！請點擊下方按鈕下載。")
+                    # 轉換成功後顯示成功訊息
+                    st.success("✅ 轉換成功！檔案已自動下載至您的裝置中。")
+                    
+                    # 👇👇👇 核心魔法：將 PDF 轉成 Base64 並用 JavaScript 自動觸發下載 👇👇👇
+                    b64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                    pdf_filename = f"正德調代課單_{datetime.date.today().strftime('%Y%m%d')}.pdf"
+                    
+                    auto_download_js = f"""
+                        <script>
+                            var link = document.createElement('a');
+                            link.href = 'data:application/pdf;base64,{b64_pdf}';
+                            link.download = '{pdf_filename}';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        </script>
+                    """
+                    components.html(auto_download_js, height=0, width=0)
+                    # 👆👆👆 魔法結束 👆👆👆
+                    
                 else:
                     st.error("❌ 轉換失敗，伺服器過度繁忙或缺少套件。")
-                    
-        # 若有轉換好的 PDF，則顯示下載按鈕
-        if 'ready_pdf' in st.session_state:
-            st.download_button(
-                label="📥 點我下載生成的 PDF 檔",
-                data=st.session_state['ready_pdf'],
-                file_name=f"正德調代課單_{datetime.date.today().strftime('%Y%m%d')}.pdf",
-                mime="application/pdf",
-                type="primary",
-                use_container_width=True
-            )
