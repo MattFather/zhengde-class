@@ -43,7 +43,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.32版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.33 極簡連連看版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -58,16 +58,14 @@ components.html(
         if (event.key.toLowerCase() === 'c') {
             
             // 檢查目前滑鼠的焦點 (focus) 是不是在輸入框或文字區裡面
-            // 如果焦點在 input 裡面，就放行，讓您可以正常打字輸入 c
             const activeElement = doc.activeElement;
             const isInput = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
             
             if (!isInput) {
-                // 如果焦點不在輸入框，代表您只是在網頁亂點或想複製文字
-                // 毫不留情地把這個按鍵事件「徹底殺死」！
-                event.preventDefault();    // 阻止預設行為 (例如跳出快取視窗)
-                event.stopPropagation();   // 阻止事件繼續往上傳遞
-                event.stopImmediatePropagation(); // 殺到底，連同層級的其他監聽器也叫不醒
+                // 如果焦點不在輸入框，直接把這個按鍵動作殺掉！
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
             }
         }
     }, true); 
@@ -169,7 +167,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
         run_time = cell_p.add_run(times_list[r_idx])
         run_time.font.size = Pt(9) 
 
-    # 5. 填入課程資料 (採用「同格子分組聚合」邏輯，確保 X 標記與實體課程不衝突)
+    # 5. 填入課程資料 (同格子分組聚合)
     day_map = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5} 
     cell_records = {}
     
@@ -224,41 +222,24 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 run_teacher.font.size = Pt(9)
                 run_teacher.bold = True
                 
-                # 第四行：狀態/群組/原資訊
+                # 第四行：極簡狀態提示 [代課] 或 [配對編號]
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
                 
                 pair_id = str(row_data.get("配對編號", "")).strip()
-                group_str = f"【組{pair_id}】" if pair_id else ""
                 
                 if str(row_data["調/代課"]) == "代課":
                     run_type = p4.add_run("[代課]")
                     run_type.font.size = Pt(8)
                 else:
-                    orig_info = str(row_data.get("原資訊", "")) if pd.notnull(row_data.get("原資訊")) else ""
-                    
-                    if title_suffix == "存查聯":
-                        # 存查聯：加上【組號】方便行政對照
-                        if group_str:
-                            run_grp = p4.add_run(group_str)
-                            run_grp.font.size = Pt(8)
-                            run_grp.bold = True
-                            if orig_info:
-                                p5 = cell.add_paragraph()
-                                p5.paragraph_format.space_after = Pt(0)
-                                run_orig = p5.add_run(orig_info)
-                                run_orig.font.size = Pt(8)
-                        else:
-                            run_type = p4.add_run(orig_info if orig_info else "[調課]")
-                            run_type.font.size = Pt(8)
+                    # 只要有配對編號，就顯示 [1]、[2] 來取代落長的文字
+                    if pair_id:
+                        run_type = p4.add_run(f"[{pair_id}]")
+                        run_type.font.size = Pt(9) # 稍微放大凸顯群組關係
+                        run_type.bold = True
                     else:
-                        # 教師通知聯 / 班級公告聯：正常顯示
-                        if is_teacher_side and orig_info:
-                            run_type = p4.add_run(orig_info)
-                            run_type.font.size = Pt(8) 
-                        else:
-                            run_type = p4.add_run("[調課]")
-                            run_type.font.size = Pt(8)
+                        run_type = p4.add_run("[調課]")
+                        run_type.font.size = Pt(8)
                             
         # 若沒有真實課程，且這是一堂被調走的空堂，在教師通知聯中畫上 X
         elif x_marks and "教師通知聯" in title_suffix:
@@ -278,7 +259,14 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
             
             p3 = cell.add_paragraph()
             p3.paragraph_format.space_after = Pt(0)
-            run_text = p3.add_run("(已調走)")
+            
+            # 空堂也加上配對編號，例如：(已調走 [1])
+            pair_id = str(row_data.get("配對編號", "")).strip()
+            if pair_id:
+                run_text = p3.add_run(f"(已調走 [{pair_id}])")
+            else:
+                run_text = p3.add_run("(已調走)")
+                
             run_text.font.size = Pt(8)
             run_text.bold = True
 
@@ -318,7 +306,6 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
 # ================= 自動對調處理引擎 =================
 def process_swap_logic(df):
     df_result = []
-    w_map = {0:"一", 1:"二", 2:"三", 3:"四", 4:"五", 5:"六", 6:"日"}
     
     subs = df[df["調/代課"] == "代課"].copy()
     for _, r in subs.iterrows():
@@ -339,33 +326,15 @@ def process_swap_logic(df):
             
             for i in range(n):
                 new_row = rows.iloc[i].copy()
-                o_d = orig_dates[i]
-                o_p = orig_periods[i]
-                
-                # 處理日期型態
-                try:
-                    if pd.isnull(o_d) or o_d == "":
-                        w_day = ""
-                        date_str = ""
-                    else:
-                        dt_obj = pd.to_datetime(o_d)
-                        w_day = w_map.get(dt_obj.weekday(), "")
-                        date_str = dt_obj.strftime('%m/%d')
-                except:
-                    w_day = ""
-                    date_str = ""
-                    
-                new_row["原資訊"] = f"[原{date_str}({w_day}){o_p}]" if date_str else ""
                 new_row["日期"] = shifted_dates[i]
                 new_row["節次"] = shifted_periods[i]
                 df_result.append(new_row)
                 
                 # ----- 產生空堂 X 紀錄，專門給教師通知聯使用 -----
                 x_row = rows.iloc[i].copy()
-                x_row["日期"] = o_d
-                x_row["節次"] = o_p
+                x_row["日期"] = orig_dates[i]
+                x_row["節次"] = orig_periods[i]
                 x_row["調/代課"] = "空堂X"
-                x_row["原資訊"] = ""
                 df_result.append(x_row)
                 
         else:
@@ -455,7 +424,7 @@ with c3: issue_unit = st.text_input("發放單位", value="ＯＯＯ老師")
 st.info("""
 💡 **操作說明**：（點選表格「**左側**」方塊後按 `Delete` 鍵可刪除不需要的資料列）
 1. **代課**：類型選 `[代課]`，`[配對編號]` **留空**。保留原上課時間，僅更換老師與科目。
-2. **互調**：類型選 `[調課]`，兩筆原始資料 `[配對編號]` 填入 **相同數字**。系統互換時間並標註原上課時間。
+2. **互調**：類型選 `[調課]`，兩筆原始資料 `[配對編號]` 填入 **相同數字**。系統互換時間並用 [數字] 標示群組。
 3. **多角調**：類型選 `[調課]`，涉及的資料 `[配對編號]` 填入 **相同數字**。依輸入順序自動循環對調。
 """)
 
@@ -473,29 +442,24 @@ c_upload, _ = st.columns([1, 1])
 with c_upload:
     uploaded_file = st.file_uploader("📂 如果您有之前下載的進度檔 (.csv)，請在此上傳恢復：", type=["csv"])
     if uploaded_file is not None:
-        # 確保只在剛上傳時讀取一次，避免干擾後續編輯
         if 'last_uploaded_id' not in st.session_state or st.session_state.last_uploaded_id != uploaded_file.file_id:
             try:
-                # 加入 dtype=str 確保一開始全部當字串讀取
                 df_upload = pd.read_csv(uploaded_file, keep_default_na=False, dtype=str)
                 
-                # 處理日期欄位，將字串轉回 date，有錯誤就變成 NaT 再轉 None
                 if "日期" in df_upload.columns:
                     df_upload["日期"] = pd.to_datetime(df_upload["日期"], errors='coerce').dt.date
                     df_upload["日期"] = df_upload["日期"].apply(lambda x: x if pd.notnull(x) else None)
                 
-                # 處理布林值
                 if "勾選列印資料" in df_upload.columns:
                     df_upload["勾選列印資料"] = df_upload["勾選列印資料"].str.lower() != 'false'
                 
-                # 其他欄位已經在 dtype=str 時處理成字串了，如果有遺漏的再次確保
                 for col in ["配對編號", "班級", "節次", "科目", "老師", "調/代課"]:
                     if col in df_upload.columns:
                         df_upload[col] = df_upload[col].astype(str)
                 
                 st.session_state.res_data = df_upload
-                st.session_state.last_uploaded_id = uploaded_file.file_id # 記錄 ID 避免重複讀取
-                st.rerun() # 重新整理畫面以顯示新資料
+                st.session_state.last_uploaded_id = uploaded_file.file_id
+                st.rerun() 
             except Exception as e:
                 st.error(f"❌ 檔案讀取失敗: {e}")
 
@@ -527,7 +491,6 @@ edited_df = st.data_editor(
 # 進度下載按鈕
 c_download, _ = st.columns([2, 8])
 with c_download:
-    # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
     csv_bytes = edited_df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
         label="💾 下載目前進度",
