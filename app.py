@@ -43,7 +43,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.35版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.36 動向追蹤版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -260,8 +260,9 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
             p3 = cell.add_paragraph()
             p3.paragraph_format.space_after = Pt(0)
             
-            # 空堂顯示 (已調走) 不加配對編號
-            run_text = p3.add_run("(已調走)")
+            # 顯示「調 MM/DD[節次]」
+            target_info = str(row_data.get("原資訊", "")).strip()
+            run_text = p3.add_run(target_info if target_info else "(已調走)")
             run_text.font.size = Pt(8)
             run_text.bold = True
 
@@ -330,6 +331,26 @@ def process_swap_logic(df):
                 x_row["日期"] = orig_dates[i]
                 x_row["節次"] = orig_periods[i]
                 x_row["調/代課"] = "空堂X"
+                
+                # 計算調往哪一天的第幾節
+                target_date = shifted_dates[i]
+                target_period = shifted_periods[i]
+                try:
+                    if pd.isnull(target_date) or target_date == "":
+                        t_date_str = ""
+                    else:
+                        t_date_str = pd.to_datetime(target_date).strftime('%m/%d')
+                    
+                    # 擷取節次的純數字 (例如 "第 3 節" -> "3")
+                    t_p_num = "".join(filter(str.isdigit, str(target_period)))
+                    
+                    if t_date_str and t_p_num:
+                        x_row["原資訊"] = f"調 {t_date_str}[{t_p_num}]"
+                    else:
+                        x_row["原資訊"] = "(已調走)"
+                except:
+                    x_row["原資訊"] = "(已調走)"
+                    
                 df_result.append(x_row)
                 
         else:
