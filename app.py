@@ -465,7 +465,7 @@ if data_docx:
     col_word, col_pdf = st.columns(2)
     
     with col_word:
-        st.markdown("#### 🔹 第一步：下載 Word (可修改)")
+        st.markdown("#### 🔹 第一步：下載 Word")
         st.download_button(
             label="📥 下載 Word 檔",
             data=data_docx,
@@ -475,7 +475,7 @@ if data_docx:
         )
         
     with col_pdf:
-        st.markdown("#### 🔹 第二步：轉換成 PDF (手機專用)")
+        st.markdown("#### 🔹 第二步：下載 PDF (手機建議)")
         if st.button("🔄 呼叫雲端伺服器轉成 PDF", use_container_width=True):
             with st.spinner("🚀 伺服器正在努力轉換中 (約需 5~10 秒，請耐心等候)..."):
                 pdf_data = docx_to_pdf(data_docx)
