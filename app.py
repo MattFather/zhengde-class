@@ -43,7 +43,7 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.33 極簡連連看版)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.34 版)")
 
 # 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
@@ -235,8 +235,7 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                     # 只要有配對編號，就顯示 [1]、[2] 來取代落長的文字
                     if pair_id:
                         run_type = p4.add_run(f"[{pair_id}]")
-                        run_type.font.size = Pt(9) # 稍微放大凸顯群組關係
-                        run_type.bold = True
+                        run_type.font.size = Pt(8) # 統一改為 8pt 且不加粗體
                     else:
                         run_type = p4.add_run("[調課]")
                         run_type.font.size = Pt(8)
@@ -260,13 +259,8 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
             p3 = cell.add_paragraph()
             p3.paragraph_format.space_after = Pt(0)
             
-            # 空堂也加上配對編號，例如：(已調走 [1])
-            pair_id = str(row_data.get("配對編號", "")).strip()
-            if pair_id:
-                run_text = p3.add_run(f"(已調走 [{pair_id}])")
-            else:
-                run_text = p3.add_run("(已調走)")
-                
+            # 空堂顯示 (已調走) 不加配對編號
+            run_text = p3.add_run("(已調走)")
             run_text.font.size = Pt(8)
             run_text.bold = True
 
