@@ -535,7 +535,7 @@ if data_docx:
     col_word, col_pdf = st.columns(2)
     
     with col_word:
-        st.markdown("#### 🔹 選項一：下載可編輯 Word 檔 (電腦適用)")
+        st.markdown("#### 🔹 選項一：下載Word檔 (可編輯)")
         st.download_button(
             label="📥 下載 Word 檔",
             data=data_docx,
@@ -545,7 +545,7 @@ if data_docx:
         )
         
     with col_pdf:
-        st.markdown("#### 🔹 選項二：一鍵轉換與下載 PDF (手機專用)")
+        st.markdown("#### 🔹 選項二：下載PDF(手機建議)")
         
         # 使用 primary 顏色讓按鈕更明顯
         if st.button("🔄 轉換並自動下載 PDF", use_container_width=True, type="primary"):
