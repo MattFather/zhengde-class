@@ -43,23 +43,34 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.30)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.31版)")
 
-# 👇👇👇 加入這段「快捷鍵刺客」魔法 👇👇👇
+# 👇👇👇 加入這段「強效版快捷鍵刺客」魔法 👇👇👇
 components.html(
     """
     <script>
-    // 抓取整個 Streamlit 網頁的底層框架
+    // 找出 Streamlit 最底層的 iframe 和 document
     const doc = window.parent.document;
     
-    // 在最外層攔截鍵盤按下的動作
-    doc.addEventListener('keydown', function(e) {
-        // 如果按下的是 c 或 C (不論有沒有按著 Ctrl)
-        if (e.key === 'c' || e.key === 'C') {
-            // 直接把這個按鍵動作殺掉，不讓 Streamlit 收到
-            e.stopPropagation();
+    // 使用 capture: true 強制在事件剛發生時就攔截
+    doc.addEventListener('keydown', function(event) {
+        // 檢查按下的鍵是不是 c 或 C
+        if (event.key.toLowerCase() === 'c') {
+            
+            // 檢查目前滑鼠的焦點 (focus) 是不是在輸入框或文字區裡面
+            // 如果焦點在 input 裡面，就放行，讓您可以正常打字輸入 c
+            const activeElement = doc.activeElement;
+            const isInput = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+            
+            if (!isInput) {
+                // 如果焦點不在輸入框，代表您只是在網頁亂點或想複製文字
+                // 毫不留情地把這個按鍵事件「徹底殺死」！
+                event.preventDefault();    // 阻止預設行為 (例如跳出快取視窗)
+                event.stopPropagation();   // 阻止事件繼續往上傳遞
+                event.stopImmediatePropagation(); // 殺到底，連同層級的其他監聽器也叫不醒
+            }
         }
-    }, true); // true 代表在「捕捉階段」就優先攔截
+    }, true); 
     </script>
     """,
     height=0,
