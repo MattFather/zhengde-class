@@ -12,6 +12,7 @@ import datetime
 import subprocess
 import tempfile
 import os
+import streamlit.components.v1 as components
 
 # ================= 雲端 PDF 轉換引擎 =================
 def docx_to_pdf(docx_bytes):
@@ -42,7 +43,29 @@ def docx_to_pdf(docx_bytes):
 
 # ================= 網頁整體設定 =================
 st.set_page_config(page_title="正德國中 - 調/代 課單系統", layout="wide")
-st.title("🏫 正德國中 - 調/代 課單系統 (V.29)")
+st.title("🏫 正德國中 - 調/代 課單系統 (V.30)")
+
+# 👇👇👇 加入這段「快捷鍵刺客」魔法 👇👇👇
+components.html(
+    """
+    <script>
+    // 抓取整個 Streamlit 網頁的底層框架
+    const doc = window.parent.document;
+    
+    // 在最外層攔截鍵盤按下的動作
+    doc.addEventListener('keydown', function(e) {
+        // 如果按下的是 c 或 C (不論有沒有按著 Ctrl)
+        if (e.key === 'c' || e.key === 'C') {
+            // 直接把這個按鍵動作殺掉，不讓 Streamlit 收到
+            e.stopPropagation();
+        }
+    }, true); // true 代表在「捕捉階段」就優先攔截
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+# 👆👆👆 魔法結束 👆👆👆
 
 # ================= 核心輔助函式 =================
 def set_cell_border(cell, **kwargs):
@@ -138,8 +161,8 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
     # 5. 填入課程資料
     day_map = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5} 
     for _, row_data in filtered_df.iterrows():
-        if pd.notnull(row_data["日期"]):
-            d_idx = day_map.get(row_data["日期"].weekday())
+        if pd.notnull(row_data["日期"]) and row_data["日期"] != "":
+            d_idx = day_map.get(pd.to_datetime(row_data["日期"]).weekday())
             try:
                 p_idx = int(str(row_data["節次"]).split()[1])
             except: continue
@@ -147,13 +170,13 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 cell = inner_table.rows[p_idx].cells[d_idx]
                 cell.text = "" 
                 
-                c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) else ""
-                s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) else ""
+                c_name = str(row_data["班級"]).strip() if pd.notnull(row_data["班級"]) and row_data["班級"] != "" else ""
+                s_name = str(row_data["科目"]).strip() if pd.notnull(row_data["科目"]) and row_data["科目"] != "" else ""
                 
                 # 統一設定前三行字體為 9pt，並加上粗體
                 p1 = cell.paragraphs[0]
                 p1.paragraph_format.space_after = Pt(0)
-                run_date_cell = p1.add_run(row_data["日期"].strftime("%m/%d"))
+                run_date_cell = p1.add_run(pd.to_datetime(row_data["日期"]).strftime("%m/%d"))
                 run_date_cell.font.size = Pt(9)
                 run_date_cell.bold = True
                 
@@ -174,11 +197,11 @@ def generate_timetable_block(container_cell, title_suffix, sch_year, sch_term, i
                 p4 = cell.add_paragraph()
                 p4.paragraph_format.space_after = Pt(0)
                 
-                if row_data["調/代課"] == "代課":
+                if str(row_data["調/代課"]) == "代課":
                     run_type = p4.add_run("[代課]")
                     run_type.font.size = Pt(8)
                 else:
-                    if is_teacher_side and pd.notnull(row_data.get("原資訊")):
+                    if is_teacher_side and pd.notnull(row_data.get("原資訊")) and row_data.get("原資訊") != "":
                         run_type = p4.add_run(str(row_data["原資訊"]))
                         run_type.font.size = Pt(8) 
                     else:
@@ -244,8 +267,21 @@ def process_swap_logic(df):
                 new_row = rows.iloc[i].copy()
                 o_d = orig_dates[i]
                 o_p = orig_periods[i]
-                w_day = w_map.get(o_d.weekday(), "")
-                new_row["原資訊"] = f"[原{o_d.strftime('%m/%d')}({w_day}){o_p}]"
+                
+                # 處理日期型態
+                try:
+                    if pd.isnull(o_d) or o_d == "":
+                        w_day = ""
+                        date_str = ""
+                    else:
+                        dt_obj = pd.to_datetime(o_d)
+                        w_day = w_map.get(dt_obj.weekday(), "")
+                        date_str = dt_obj.strftime('%m/%d')
+                except:
+                    w_day = ""
+                    date_str = ""
+                    
+                new_row["原資訊"] = f"[原{date_str}({w_day}){o_p}]" if date_str else ""
                 new_row["日期"] = shifted_dates[i]
                 new_row["節次"] = shifted_periods[i]
                 df_result.append(new_row)
@@ -326,7 +362,6 @@ def create_docx(sch_year, sch_term, issue_unit, edited_df):
     return bio.getvalue()
 
 # ================= 網頁介面 =================
-st.markdown("### 📅 調/代 課單自動對調系統 (V.29)")
 
 # 增加發放單位輸入框
 c1, c2, c3 = st.columns(3)
@@ -358,21 +393,22 @@ with c_upload:
         # 確保只在剛上傳時讀取一次，避免干擾後續編輯
         if 'last_uploaded_id' not in st.session_state or st.session_state.last_uploaded_id != uploaded_file.file_id:
             try:
-                # 【關鍵防錯 1】：加入 keep_default_na=False 阻止 pandas 把空白解析為 float64，根除 Invalid value '' 報錯
-                df_upload = pd.read_csv(uploaded_file, keep_default_na=False)
+                # 【關鍵防錯 1】：加入 dtype=str 確保一開始全部當字串讀取，不讓 pandas 亂猜！
+                # 解決 Invalid value '' for dtype 'float64'
+                df_upload = pd.read_csv(uploaded_file, keep_default_na=False, dtype=str)
                 
-                # 處理日期欄位，將 NaT 取代為 None 讓系統能正確讀取空白
+                # 處理日期欄位，將字串轉回 date，有錯誤就變成 NaT 再轉 None
                 if "日期" in df_upload.columns:
                     df_upload["日期"] = pd.to_datetime(df_upload["日期"], errors='coerce').dt.date
                     df_upload["日期"] = df_upload["日期"].apply(lambda x: x if pd.notnull(x) else None)
                 
                 # 處理布林值
                 if "勾選列印資料" in df_upload.columns:
-                    df_upload["勾選列印資料"] = df_upload["勾選列印資料"].astype(str).str.lower() != 'false'
+                    df_upload["勾選列印資料"] = df_upload["勾選列印資料"].str.lower() != 'false'
                 
-                # 確保其他所有欄位都是乾淨字串
-                for col in df_upload.columns:
-                    if col not in ["日期", "勾選列印資料"]:
+                # 其他欄位已經在 dtype=str 時處理成字串了，如果有遺漏的再次確保
+                for col in ["配對編號", "班級", "節次", "科目", "老師", "調/代課"]:
+                    if col in df_upload.columns:
                         df_upload[col] = df_upload[col].astype(str)
                 
                 st.session_state.res_data = df_upload
@@ -406,9 +442,7 @@ edited_df = st.data_editor(
     column_order=("勾選列印資料", "配對編號", "班級", "日期", "節次", "科目", "老師", "調/代課")
 )
 
-# 【關鍵防錯 2】：移除了會導致狀態迴圈衝突（打字會消失）的同步程式碼，徹底解決吃字問題。
-
-# 進度下載按鈕 (移除了清空按鈕，避免誤觸)
+# 進度下載按鈕
 c_download, _ = st.columns([2, 8])
 with c_download:
     # 將目前的表格轉成 CSV 格式 (加上 utf-8-sig 確保 Excel 打開不會亂碼)
